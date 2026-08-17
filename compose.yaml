@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fairplay}
+      POSTGRES_USER: ${POSTGRES_USER:-fairplay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fairplay}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fairplay} -d ${POSTGRES_DB:-fairplay}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fairplay}:${POSTGRES_PASSWORD:-fairplay}@postgres:5432/${POSTGRES_DB:-fairplay}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

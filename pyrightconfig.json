@@ -1,0 +1,8 @@
+{
+  "include": ["backend"],
+  "exclude": [".venv"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.9",
+  "typeCheckingMode": "standard"
+}

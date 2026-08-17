@@ -1,0 +1,1 @@
+"""FairPlay backend application package."""
