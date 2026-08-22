@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: fairplay-team-dice
+    runtime: docker
+    repo: https://github.com/Ruzzuu/team-dice
+    branch: main
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    renderSubdomainPolicy: enabled

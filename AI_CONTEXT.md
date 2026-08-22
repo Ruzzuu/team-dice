@@ -50,19 +50,28 @@ Implemented foundation:
 - validated `Session` database model and API schemas,
 - reusable session timing/capacity calculation,
 - health endpoint and automated foundation tests,
-- Docker Compose configuration for the API and PostgreSQL.
+- Docker Compose configuration for the API and PostgreSQL,
+- responsive React/TypeScript frontend prototype with local draft persistence,
+- dashboard, session creation, player roster, demo schedule, and fairness views,
+- typed frontend service boundary ready for future FastAPI integration.
 
 Current target:
-- implement the player/session-player data model,
-- implement the round and assignment data models,
-- then build the scheduler core before session CRUD or UI work.
+- persist player/session-player, round, and assignment records,
+- add live round progression and dynamic rescheduling,
+- then replace browser-local session storage with CRUD APIs.
 
 ---
 
 ## Current Implemented Stack
 
 Frontend:
-- Not implemented yet.
+- React 18, TypeScript, Vite, and React Router.
+- Modern responsive sports-dashboard interface.
+- Shared player-name presentation formats long names consistently and uses uppercase two-letter avatar initials.
+- Schedule rounds use responsive Team A/Team B court panels and readable resting-player cards.
+- Browser-local persistence for user-created draft sessions and player rosters.
+- A seeded, read-only schedule demonstrates future schedule and fairness views.
+- Vitest and Testing Library cover presentation timing, persistence, and the dashboard.
 
 Backend:
 - FastAPI on Python 3.9+.
@@ -75,11 +84,17 @@ Database:
 - In-memory SQLite is used only for isolated model tests.
 
 Scheduler:
-- Not implemented yet.
-- Framework-independent business rules live under `backend/app/domain`; the initial session timing calculation is located there.
+- Basic deterministic scheduler is implemented under `backend/app/domain`.
+- Hard availability and capacity constraints are enforced before playing-time fairness and consecutive-rest preferences.
+- `POST /api/schedules/generate` returns rounds, assignments, rests, and fairness metrics without persisting them.
 
 Development:
 - Docker Compose configuration for PostgreSQL and the API.
+- Docker Compose serves the production frontend at port 3000.
+- A root multi-stage Docker image serves the React build and FastAPI from one
+  origin for public deployment.
+- `render.yaml` defines a free Render web service in Singapore with `/health`
+  checks and automatic deploys from `main`.
 - Pytest test suite.
 - Pyright configuration targets the repository-local `.venv`.
 
@@ -180,9 +195,12 @@ If a change is fundamental, record:
 
 1. Application configuration reads `DATABASE_URL` from the environment.
 2. Alembic creates the `sessions` table and database constraints.
-3. FastAPI starts and currently exposes `GET /health` only.
+3. FastAPI exposes `GET /health` and `POST /api/schedules/generate`.
 4. Session input can be validated through `SessionCreate`; timing and capacity are derived without duplicating the calculation in HTTP or persistence code.
-5. Session CRUD is intentionally not exposed yet because the remaining foundation models are still unfinished.
+5. Session CRUD is intentionally not exposed yet because the remaining persistence models are unfinished.
+6. The frontend loads a seeded demonstration session plus locally saved drafts through a typed `FairPlayApi` adapter.
+7. New sessions, roster changes, lifecycle status, and generated schedules remain in browser local storage until the corresponding backend APIs exist.
+8. Draft sessions can generate a backend-calculated schedule, review fairness, and transition from `DRAFT` to `READY` to `ACTIVE`; settings or roster edits before activation invalidate the previous schedule.
 
 ## Environment and Configuration
 
@@ -194,13 +212,17 @@ Docker Compose variables (development defaults are provided):
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 
-The current development machine used for this implementation does not have Docker installed, so PostgreSQL container startup was not validated locally. The migration was validated by generating PostgreSQL SQL in Alembic offline mode.
+The production Docker image has been built and smoke-tested locally. The public
+MVP does not require PostgreSQL because sessions, players, and generated
+schedules remain browser-local; PostgreSQL stays available for the future CRUD
+and persistence phase.
 
 ## Known Limitations
 
-- There is no frontend.
-- There are no player, round, assignment, scheduler, CRUD, live-session, statistics, or history features yet.
-- The current API has only a health endpoint.
+- There are no persistent player, round, assignment, CRUD, live-round progression, statistics, or history features yet.
+- The scheduler is an MVP greedy fairness implementation; dynamic rescheduling and manual overrides are not implemented.
+- Frontend draft data is local to one browser and is not authenticated or synchronized.
+- Newly created sessions use the backend scheduler, but their generated schedules remain local to the browser.
 - Session times are same-day local wall-clock values with whole-minute precision; overnight sessions are rejected.
 
 ## Known Future Work
@@ -212,14 +234,15 @@ MVP:
 - [x] Foundation model/schema tests
 - [ ] Player data model
 - [ ] Round data model
-- [ ] Basic scheduler
-- [ ] Fairness metrics
-- [ ] Schedule preview
-- [ ] Live session flow
+- [x] Basic scheduler
+- [x] Fairness metrics
+- [x] Schedule preview
+- [x] Start-session lifecycle transition
 - [ ] Dynamic rescheduling
 - [ ] Statistics
+- [x] Interactive frontend prototype
 - [ ] Persistence and session CRUD/history
-- [ ] Automated scheduler tests
+- [x] Automated scheduler tests
 
 Later:
 - [ ] Skill balancing

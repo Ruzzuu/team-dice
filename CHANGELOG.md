@@ -8,6 +8,86 @@ Use `AI_CONTEXT.md` for the current state.
 
 ---
 
+## 2026-08-22 — Render deployment preparation
+
+### Added
+
+- Added a multi-stage production Docker image that builds React and serves it
+  with FastAPI from a single public origin.
+- Added Render Blueprint configuration for a free Singapore web service with
+  health checks and automatic deployments from `main`.
+- Added tests for production static assets, React deep-link fallback, and API
+  404 behavior.
+
+### Changed
+
+- FastAPI now exposes an application factory and optionally serves the built
+  frontend when `FRONTEND_DIST_DIR` is configured.
+- Updated deployment and smoke-test documentation.
+
+### Architectural Decision
+
+- Deploy the browser-local MVP as one public service without PostgreSQL. This
+  keeps the existing `/api` contract on the same origin and avoids adding data
+  persistence before the CRUD models and endpoints are ready.
+
+### Verification
+
+- Production Docker build succeeded.
+- Frontend root, React deep links, health check, API 404, and schedule
+  generation were smoke-tested against the built image.
+
+## 2026-08-21 — Scheduler and session controls
+
+### Added
+
+- Added a deterministic FastAPI scheduler endpoint with availability, capacity, fairness, consecutive-rest, and seeded tie-breaking behavior.
+- Added schedule persistence in browser local storage and the `DRAFT → READY → ACTIVE` frontend lifecycle.
+- Added working Generate Schedule, Start Session confirmation, and editable Settings controls.
+- Added scheduler, endpoint, adapter, lifecycle, and settings tests.
+
+### Changed
+
+- Roster or settings changes before activation now invalidate an existing schedule.
+- Active sessions lock configuration and roster editing.
+- Vite and Nginx now proxy `/api` requests to FastAPI.
+- Long player names now retain the first two words and abbreviate later words, while avatars consistently use uppercase initials.
+- Redesigned court match and resting-player cards for clearer team separation, readable names, and responsive layouts.
+
+### Why
+
+- User-created sessions previously had no generated schedule, which permanently disabled Start Session, while Settings had no behavior.
+
+### Architectural Decision
+
+- Keep scheduler rules in the backend while retaining browser-local session persistence for the MVP. This makes the workflow functional without prematurely introducing the full player/round persistence model.
+
+---
+
+## 2026-08-20 — Interactive frontend prototype
+
+### Added
+
+- Added a responsive React and TypeScript frontend with a modern sports-dashboard design.
+- Added dashboard, guided session creation, player roster management, schedule preview, and fairness summary views.
+- Added browser-local persistence behind a typed service adapter and a seeded read-only demonstration schedule.
+- Added frontend tests, production container configuration, and a Docker Compose web service.
+
+### Changed
+
+- Updated project documentation and current-state notes with frontend development and verification commands.
+
+### Why
+
+- The project had no user interface. This prototype makes the intended organizer experience tangible while keeping the not-yet-implemented scheduling rules out of UI components.
+
+### Architectural Decision
+
+- Keep all browser data access behind `FairPlayApi` so future FastAPI endpoints can replace the local adapter without rewriting views.
+- Do not generate schedules for new drafts in the browser; only seeded demo results are visualized until the backend scheduler is implemented.
+
+---
+
 ## 2026-08-17 — Initial product definition
 
 ### Added
