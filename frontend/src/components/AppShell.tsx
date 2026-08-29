@@ -1,12 +1,11 @@
-import { CalendarDays, CircleHelp, LayoutDashboard, Menu, Settings, UsersRound, X } from "lucide-react";
+import { LayoutDashboard, Menu, Plus, X } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { BrandMark } from "./BrandMark";
 
 const navItems = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
-  { to: "/sessions/demo-friday-badminton", label: "Sessions", icon: CalendarDays },
-  { to: "/sessions/demo-friday-badminton?tab=players", label: "Players", icon: UsersRound },
+  { to: "/sessions/new", label: "New session", icon: Plus },
 ];
 
 export function AppShell() {
@@ -14,7 +13,10 @@ export function AppShell() {
 
   return (
     <div className="app-shell">
-      <button className="mobile-menu" aria-label="Open navigation" onClick={() => setMenuOpen(true)}><Menu /></button>
+      <header className="mobile-header">
+        <Link to="/" className="mobile-brand" aria-label="FairPlay overview"><BrandMark /><strong>FairPlay</strong></Link>
+        <button className="mobile-menu" aria-label="Open navigation" onClick={() => setMenuOpen(true)}><Menu /></button>
+      </header>
       {menuOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
       <aside className={`sidebar ${menuOpen ? "sidebar--open" : ""}`}>
         <div className="sidebar-brand">
@@ -31,15 +33,21 @@ export function AppShell() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <a href="#settings"><Settings size={18} />Settings</a>
-          <a href="#help"><CircleHelp size={18} />Help center</a>
           <div className="profile-chip">
-            <div className="avatar">FA</div>
-            <div><strong>Fauzan</strong><span>Organizer</span></div>
+            <div className="avatar">FP</div>
+            <div><strong>Local workspace</strong><span>Saved on this device</span></div>
           </div>
         </div>
       </aside>
       <main className="main-content"><Outlet /></main>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        {navItems.map(({ to, label, icon: Icon }) => (
+          <NavLink key={label} to={to} end={to === "/"}>
+            <Icon />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

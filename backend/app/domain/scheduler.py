@@ -122,9 +122,19 @@ def _make_courts(
     seed: int,
     round_number: int,
 ) -> Tuple[CourtSchedule, ...]:
+    if len(selected_ids) < 2:
+        return tuple()
+    desired_courts = min(
+        math.ceil(len(selected_ids) / players_per_court),
+        len(selected_ids) // 2,
+    )
+    base_size, extra_players = divmod(len(selected_ids), desired_courts)
     courts: List[CourtSchedule] = []
-    for start in range(0, len(selected_ids), players_per_court):
-        court_player_ids = selected_ids[start : start + players_per_court]
+    start = 0
+    for court_index in range(desired_courts):
+        court_size = base_size + (1 if court_index < extra_players else 0)
+        court_player_ids = selected_ids[start : start + court_size]
+        start += court_size
         team_a, team_b = _make_teams(
             court_player_ids,
             players_by_id,
@@ -152,18 +162,28 @@ def generate_fair_schedule(
     round_duration_minutes: int,
     players: Sequence[SchedulerPlayer],
     seed: int = 0,
+    initial_play_counts: Optional[Dict[str, int]] = None,
+    initial_rest_counts: Optional[Dict[str, int]] = None,
+    previous_resting_player_ids: Optional[Set[str]] = None,
+    round_number_offset: int = 0,
 ) -> SchedulerResult:
     """Generate deterministic rounds while prioritizing playing-time fairness."""
 
     capacity = court_count * players_per_court
-    play_counts: Dict[str, int] = {player.id: 0 for player in players}
-    rest_counts: Dict[str, int] = {player.id: 0 for player in players}
-    previous_resting: Set[str] = set()
+    play_counts: Dict[str, int] = {
+        player.id: (initial_play_counts or {}).get(player.id, 0)
+        for player in players
+    }
+    rest_counts: Dict[str, int] = {
+        player.id: (initial_rest_counts or {}).get(player.id, 0)
+        for player in players
+    }
+    previous_resting: Set[str] = set(previous_resting_player_ids or set())
     players_by_id = {player.id: player for player in players}
     rounds: List[ScheduledRound] = []
 
     for round_index in range(timing.number_of_rounds):
-        round_number = round_index + 1
+        round_number = round_number_offset + round_index + 1
         round_start = timing.first_round_start + timedelta(
             minutes=round_index * round_duration_minutes
         )
@@ -182,6 +202,8 @@ def generate_fair_schedule(
             ),
         )
         selected = ordered[:capacity]
+        if len(selected) < 2:
+            selected = []
         selected_ids = [player.id for player in selected]
         selected_set = set(selected_ids)
         resting_ids = [

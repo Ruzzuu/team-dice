@@ -1,4 +1,5 @@
-import { Clock3, Coffee, Info, MapPin, UsersRound } from "lucide-react";
+import { ChevronDown, Clock3, Coffee, Info, MapPin, Settings2, Shuffle, UserCog, UsersRound } from "lucide-react";
+import { useState } from "react";
 import { formatPlayerName, getPlayerInitials } from "../lib/playerNames";
 import type { Player, Schedule, Session } from "../types";
 
@@ -21,20 +22,52 @@ function TeamPanel({ label, playerIds, playerMap, variant }: { label: string; pl
   );
 }
 
-export function ScheduleBoard({ session, schedule }: { session: Session; schedule?: Schedule }) {
+export function ScheduleBoard({
+  session,
+  schedule,
+  onEditSetup,
+  onEditPlayers,
+  onReshuffle,
+}: {
+  session: Session;
+  schedule?: Schedule;
+  onEditSetup?: () => void;
+  onEditPlayers?: () => void;
+  onReshuffle?: () => void;
+}) {
+  const [showAllRounds, setShowAllRounds] = useState(false);
   const playerMap = new Map(session.players.map((player) => [player.id, player]));
 
   if (!schedule) {
-    return <section className="workspace-panel empty-state schedule-empty"><span><UsersRound /></span><h2>Schedule not generated yet</h2><p>Your session and roster are safely saved. Generate a schedule when your roster is ready.</p><div className="info-strip"><Info />Fair scheduling rules are calculated by the backend, not in the browser.</div></section>;
+    return <section className="workspace-panel empty-state schedule-empty"><span><UsersRound /></span><p className="eyebrow">Step 3</p><h2>Your schedule will appear here</h2><p>Add at least two players, then use the action above to generate fair court rotations.</p><div className="info-strip"><Info />Fairness, availability, rests, and team balance are calculated by the scheduler.</div></section>;
   }
+
+  const activeRound = schedule.rounds.find((round) => round.status === "ACTIVE");
+  const visibleRounds = showAllRounds ? schedule.rounds : schedule.rounds.slice(0, 3);
+  const hiddenRoundCount = schedule.rounds.length - visibleRounds.length;
 
   return (
     <section className="workspace-panel schedule-panel">
-      <div className="panel-heading"><div><h2>Round schedule</h2><p>{schedule.rounds.length} rounds · {session.roundDurationMinutes} minutes each</p></div><span className={`demo-pill ${schedule.isDemo ? "" : "demo-pill--generated"}`}>{schedule.isDemo ? "Interactive demo data" : "Backend generated"}</span></div>
+      <div className="panel-heading"><div><p className="eyebrow">{activeRound ? "Now playing" : "Step 3"}</p><h2>{activeRound ? `Round ${activeRound.number} is live` : "Round schedule"}</h2><p>{schedule.rounds.length} rounds · {session.roundDurationMinutes} minutes each · {session.courtCount} courts</p></div><span className={`source-pill ${schedule.isDemo ? "" : "source-pill--generated"}`}>{schedule.isDemo ? "Sample schedule" : "FairPlay generated"}</span></div>
+      {!schedule.isDemo && (session.status === "DRAFT" || session.status === "READY") && onEditSetup && onEditPlayers && onReshuffle && (
+        <div className="schedule-review-toolbar" aria-label="Change generated schedule">
+          <div><strong>Want a different plan?</strong><span>Revise the inputs or ask FairPlay for another balanced arrangement.</span></div>
+          <div className="schedule-review-actions">
+            <button type="button" className="button button--ghost button--small" onClick={onEditSetup}><Settings2 />Change setup</button>
+            <button type="button" className="button button--ghost button--small" onClick={onEditPlayers}><UserCog />Edit players</button>
+            <button type="button" className="button button--secondary button--small" onClick={onReshuffle}><Shuffle />Reshuffle teams</button>
+          </div>
+        </div>
+      )}
+      <div className="schedule-summary" aria-label="Schedule summary">
+        <div><Clock3 /><span><strong>{schedule.rounds[0]?.startTime}–{schedule.rounds.at(-1)?.endTime}</strong><small>Playing window</small></span></div>
+        <div><UsersRound /><span><strong>{session.players.length} players</strong><small>{Math.max(0, session.players.length - session.courtCount * session.playersPerCourt)} rest each round</small></span></div>
+        <div><Coffee /><span><strong>{schedule.fairness.spreadMinutes} min spread</strong><small>Closest fair balance</small></span></div>
+      </div>
       <div className="round-list">
-        {schedule.rounds.map((round) => (
-          <article className={`round-card ${round.status === "ACTIVE" ? "round-card--current" : ""}`} key={round.id}>
-            <div className="round-index"><span>Round</span><strong>{String(round.number).padStart(2, "0")}</strong><p><Clock3 />{round.startTime}<br />{round.endTime}</p></div>
+        {visibleRounds.map((round) => (
+          <article className={`round-card ${round.status === "ACTIVE" ? "round-card--current" : round.status === "COMPLETED" ? "round-card--completed" : ""}`} key={round.id}>
+            <div className="round-index"><span>{round.status === "ACTIVE" ? "Now" : round.status === "COMPLETED" ? "Finished" : "Round"}</span><strong>{String(round.number).padStart(2, "0")}</strong><p><Clock3 />{round.startTime}–{round.endTime}</p></div>
             <div className="court-grid">
               {round.courts.map((court) => (
                 <div className="court-match" key={court.courtNumber}>
@@ -44,6 +77,7 @@ export function ScheduleBoard({ session, schedule }: { session: Session; schedul
                     <span className="versus">VS</span>
                     <TeamPanel label="B" playerIds={court.teamB} playerMap={playerMap} variant="b" />
                   </div>
+                  {court.result && <div className="match-result"><span>{court.result.winner === "UNRECORDED" ? "Completed · no score" : court.result.winner === "DRAW" ? "Draw" : `Team ${court.result.winner} won`}</span>{court.result.winner !== "UNRECORDED" && <strong>{court.result.teamAScore}–{court.result.teamBScore}</strong>}</div>}
                 </div>
               ))}
             </div>
@@ -51,6 +85,7 @@ export function ScheduleBoard({ session, schedule }: { session: Session; schedul
             {round.status === "ACTIVE" && <div className="live-flag"><i />Now playing</div>}
           </article>
         ))}
+        {schedule.rounds.length > 3 && <button className="show-rounds-button" type="button" onClick={() => setShowAllRounds((current) => !current)}>{showAllRounds ? "Show fewer rounds" : `Show ${hiddenRoundCount} more rounds`}<ChevronDown className={showAllRounds ? "is-open" : ""} /></button>}
       </div>
     </section>
   );

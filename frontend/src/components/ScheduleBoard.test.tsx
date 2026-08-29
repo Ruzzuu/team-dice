@@ -26,6 +26,7 @@ const session: Session = {
 const schedule: Schedule = {
   sessionId: session.id,
   isDemo: false,
+  generationSeed: 0,
   rounds: [{
     id: "round-1",
     number: 1,
@@ -53,6 +54,6 @@ describe("ScheduleBoard player presentation", () => {
     expect(screen.getByText("MF")).toBeInTheDocument();
     expect(screen.getByText("AC")).toBeInTheDocument();
     expect(screen.getByTitle("edo bagas sehat walafiat")).toHaveAttribute("aria-label", "edo bagas sehat walafiat");
-    expect(screen.getByText("Backend generated")).toBeInTheDocument();
+    expect(screen.getByText("FairPlay generated")).toBeInTheDocument();
   });
 });

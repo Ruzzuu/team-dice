@@ -1,5 +1,6 @@
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
+import { Dialog, DialogHeader } from "./Dialog";
 import { calculateTimingPreview } from "../lib/timing";
 import { localFairPlayApi } from "../services/fairplayApi";
 import type { Session, SessionInput } from "../types";
@@ -47,9 +48,9 @@ export function SessionSettingsModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <form className="player-modal settings-modal" onSubmit={save} aria-label="Session settings">
-        <div className="modal-heading"><div><p className="eyebrow">Session setup</p><h2>Settings</h2></div><button type="button" aria-label="Close settings" onClick={onClose}><X /></button></div>
+    <Dialog titleId="session-settings-title" onClose={onClose} className="settings-dialog">
+      <form onSubmit={save} aria-label="Session settings">
+        <DialogHeader eyebrow="Session setup" title="Settings" titleId="session-settings-title" onClose={onClose} />
         {hasSchedule && <div className="settings-warning"><AlertTriangle /><p><strong>Schedule will be cleared</strong><span>Changing these settings returns the session to Draft so a new fair schedule can be generated.</span></p></div>}
         <div className="field"><label htmlFor="settings-name">Session name</label><input id="settings-name" value={form.name} onChange={(event) => update("name", event.target.value)} /></div>
         <div className="field"><label htmlFor="settings-date">Date</label><input id="settings-date" type="date" value={form.date} onChange={(event) => update("date", event.target.value)} /></div>
@@ -70,6 +71,6 @@ export function SessionSettingsModal({
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="form-actions"><button type="button" className="button button--ghost" onClick={onClose}>Cancel</button><button className="button button--primary" disabled={saving}>{saving ? "Saving…" : "Save settings"}</button></div>
       </form>
-    </div>
+    </Dialog>
   );
 }

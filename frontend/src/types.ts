@@ -19,6 +19,8 @@ export interface Player {
   availableFrom?: string;
   availableUntil?: string;
   notes?: string;
+  participationStatus?: "ACTIVE" | "LEFT";
+  leftAfterRoundNumber?: number;
 }
 
 export interface Session extends SessionInput {
@@ -26,12 +28,36 @@ export interface Session extends SessionInput {
   status: SessionStatus;
   players: Player[];
   createdAt: string;
+  recoveryNotice?: string;
 }
+
+export type SessionStep = "setup" | "players" | "schedule" | "play";
 
 export interface CourtAssignment {
   courtNumber: number;
   teamA: string[];
   teamB: string[];
+  result?: CourtResult;
+}
+
+export interface CourtResult {
+  teamAScore?: number;
+  teamBScore?: number;
+  winner: "A" | "B" | "DRAW" | "UNRECORDED";
+  completedAt: string;
+}
+
+export interface CourtResultInput {
+  courtNumber: number;
+  teamAScore?: number;
+  teamBScore?: number;
+  completedWithoutScore: boolean;
+}
+
+export interface CompleteRoundInput {
+  roundId: string;
+  results: CourtResultInput[];
+  departingPlayerIds: string[];
 }
 
 export interface Round {
@@ -42,6 +68,7 @@ export interface Round {
   courts: CourtAssignment[];
   restingPlayerIds: string[];
   status: "COMPLETED" | "ACTIVE" | "UPCOMING";
+  completedAt?: string;
 }
 
 export interface PlayerFairness {
@@ -63,6 +90,7 @@ export interface Schedule {
   rounds: Round[];
   fairness: FairnessSummary;
   isDemo: boolean;
+  generationSeed: number;
 }
 
 export interface GeneratedScheduleResult {

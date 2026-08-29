@@ -57,6 +57,7 @@ const fairnessPlayers = demoPlayers.map((player) => {
 
 export const demoSchedule: Schedule = {
   sessionId: demoSession.id,
+  generationSeed: 0,
   rounds,
   fairness: {
     score: 96,

@@ -1,6 +1,6 @@
 # FairPlay Rotation Scheduler
 
-FairPlay Rotation Scheduler creates court rotations that prioritize equal playing time. The repository contains a backend foundation and a polished interactive frontend prototype. The scheduler and feature APIs will be added incrementally according to `PRD.md`.
+FairPlay Rotation Scheduler creates court rotations that prioritize equal playing time. The monorepo keeps the React frontend and FastAPI backend in separate top-level folders while sharing local development, testing, and production configuration.
 
 ## Current stack
 
@@ -45,6 +45,10 @@ pytest
 ## Run the frontend locally
 
 The frontend keeps sessions and generated schedules in browser-local storage. Schedule generation is performed by the FastAPI backend so scheduling rules are not duplicated in UI code.
+
+The interface is mobile-first and follows the organizer workflow: create a session, add players, generate and review the schedule, then start play. The demo session is a separate read-only sample and is not included in workspace metrics.
+
+Before starting play, organizers can revise session settings or players and regenerate the schedule, or request another automatically balanced team arrangement. Once the session starts, schedule and roster changes are locked.
 
 ```sh
 cd frontend

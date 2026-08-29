@@ -8,6 +8,37 @@ Use `AI_CONTEXT.md` for the current state.
 
 ---
 
+## 2026-08-29 — Mobile-first UI and organizer workflow overhaul
+
+### Added
+
+- Added reusable accessible dialog and session-progress components.
+- Made Setup, Players, Schedule, and Play an interactive guided workflow with prerequisite guidance and contextual primary actions.
+- Added runtime migration and recovery notices for legacy browser-local sessions, including a backup for irrecoverable storage.
+- Added client-side schedule contract validation, readable FastAPI 422 messages, response-shape checks, and a favicon.
+- Added pre-play schedule revision controls for changing setup, editing players, and confirmed automatic team reshuffling.
+- Added persisted generation seeds and bounded alternative-search logic that preserves the current schedule when no different fair arrangement exists.
+- Added data selectors and tests for real dashboard session, player, round, and fairness metrics.
+- Added mobile bottom navigation, responsive bottom-sheet dialogs, schedule summaries, progressive round disclosure, and fairness overview metrics.
+
+### Changed
+
+- Rebuilt the interface around a mobile-first sporty design system split into tokens, base, shell, feature, and responsive styles.
+- Simplified the organizer journey to Session → Players → Schedule → Play with a single contextual primary action and explicit disabled-state guidance.
+- Generated schedules now remain editable until play starts; actual input changes invalidate the schedule while unchanged saves preserve it.
+- Separated the read-only demo from the user workspace and removed hard-coded dashboard dates, metrics, and inactive navigation.
+- Removed the unsaved Location field and outdated prototype messaging from session creation.
+- Increased control sizes, improved focus visibility and keyboard dialog behavior, and added reduced-motion support.
+
+### Architectural Decision
+
+- Keep `frontend/` and `backend/` as separate applications in one monorepo. The frontend retains browser-local CRUD behind `FairPlayApi`; FastAPI remains the sole source of scheduling rules.
+
+### Verification
+
+- Frontend component and workflow tests pass, including dashboard metrics, guided steps, legacy-data repair, API errors, validation, disabled actions, and keyboard dialog dismissal.
+- TypeScript and Vite production build pass.
+
 ## 2026-08-22 — Render deployment preparation
 
 ### Added

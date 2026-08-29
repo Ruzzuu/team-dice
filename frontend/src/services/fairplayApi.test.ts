@@ -1,6 +1,47 @@
 import { describe, expect, it, vi } from "vitest";
 import { localFairPlayApi } from "./fairplayApi";
 
+function scheduleResponse(sessionId: string, teamA = ["p1", "p2"], teamB = ["p3", "p4"]) {
+  const ids = [...teamA, ...teamB];
+  return {
+    session_id: sessionId,
+    session_status: "READY",
+    rounds: [{
+      id: `${sessionId}-round-1`,
+      number: 1,
+      start_time: "19:00:00",
+      end_time: "19:15:00",
+      courts: [{ court_number: 1, team_a: teamA, team_b: teamB }],
+      resting_player_ids: [],
+      status: "UPCOMING",
+    }],
+    fairness: {
+      score: 100,
+      spread_minutes: 0,
+      average_minutes: 15,
+      players: ids.map((id) => ({ player_id: id, playing_minutes: 15, rounds_played: 1, rest_count: 0 })),
+    },
+  };
+}
+
+async function createFourPlayerSession() {
+  let session = await localFairPlayApi.createSession({
+    name: "Four Player Game",
+    date: "2026-08-21",
+    startTime: "19:00",
+    endTime: "20:00",
+    warmupMinutes: 0,
+    cleanupMinutes: 0,
+    roundDurationMinutes: 15,
+    courtCount: 1,
+    playersPerCourt: 4,
+  });
+  for (const id of ["p1", "p2", "p3", "p4"]) {
+    session = await localFairPlayApi.savePlayer(session.id, { id, name: `Player ${id.slice(1)}`, skillRating: 3 });
+  }
+  return session;
+}
+
 describe("localFairPlayApi", () => {
   it("persists a draft session and roster changes", async () => {
     const session = await localFairPlayApi.createSession({
@@ -68,6 +109,7 @@ describe("localFairPlayApi", () => {
 
     const generated = await localFairPlayApi.generateSchedule(session);
     expect(generated.session.status).toBe("READY");
+    expect(generated.schedule.generationSeed).toBe(0);
     expect((await localFairPlayApi.getSchedule(session.id))?.rounds).toHaveLength(1);
 
     const started = await localFairPlayApi.startSession(session.id);
@@ -76,22 +118,64 @@ describe("localFairPlayApi", () => {
   });
 
   it("invalidates an existing schedule when settings change", async () => {
-    const session = await localFairPlayApi.createSession({
-      name: "Draft",
-      date: "2026-08-21",
-      startTime: "19:00",
-      endTime: "20:00",
-      warmupMinutes: 0,
-      cleanupMinutes: 0,
-      roundDurationMinutes: 15,
-      courtCount: 1,
-      playersPerCourt: 2,
-    });
+    const session = await createFourPlayerSession();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => scheduleResponse(session.id) }));
+    const generated = await localFairPlayApi.generateSchedule(session);
 
-    const updated = await localFairPlayApi.updateSession(session.id, { ...session, name: "Updated Draft" });
+    const updated = await localFairPlayApi.updateSession(session.id, { ...generated.session, name: "Updated Draft" });
 
     expect(updated.name).toBe("Updated Draft");
     expect(updated.status).toBe("DRAFT");
+    expect(await localFairPlayApi.getSchedule(session.id)).toBeUndefined();
+  });
+
+  it("tries successive seeds and persists only a different reshuffled arrangement", async () => {
+    const session = await createFourPlayerSession();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => scheduleResponse(session.id) })
+      .mockResolvedValueOnce({ ok: true, json: async () => scheduleResponse(session.id) })
+      .mockResolvedValueOnce({ ok: true, json: async () => scheduleResponse(session.id, ["p1", "p3"], ["p2", "p4"]) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const generated = await localFairPlayApi.generateSchedule(session);
+    const reshuffled = await localFairPlayApi.reshuffleSchedule(generated.session, generated.schedule);
+
+    expect(reshuffled.schedule.generationSeed).toBe(2);
+    expect(reshuffled.schedule.rounds[0].courts[0].teamA).toEqual(["p1", "p3"]);
+    expect((await localFairPlayApi.getSchedule(session.id))?.generationSeed).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).seed).toBe(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).seed).toBe(2);
+  });
+
+  it("preserves the current schedule when no alternative arrangement is found", async () => {
+    const session = await createFourPlayerSession();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => scheduleResponse(session.id) });
+    vi.stubGlobal("fetch", fetchMock);
+    const generated = await localFairPlayApi.generateSchedule(session);
+    fetchMock.mockClear();
+
+    await expect(localFairPlayApi.reshuffleSchedule(generated.session, generated.schedule)).rejects.toThrow(/no different fair arrangement/i);
+
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect((await localFairPlayApi.getSchedule(session.id))?.generationSeed).toBe(0);
+  });
+
+  it("keeps a generated schedule when setup and player saves are unchanged", async () => {
+    const session = await createFourPlayerSession();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => scheduleResponse(session.id) }));
+    const generated = await localFairPlayApi.generateSchedule(session);
+
+    const unchangedSetup = await localFairPlayApi.updateSession(session.id, generated.session);
+    const firstPlayer = unchangedSetup.players[0];
+    const unchangedRoster = await localFairPlayApi.savePlayer(session.id, firstPlayer);
+
+    expect(unchangedSetup.status).toBe("READY");
+    expect(unchangedRoster.status).toBe("READY");
+    expect(await localFairPlayApi.getSchedule(session.id)).toBeDefined();
+
+    const changedRoster = await localFairPlayApi.savePlayer(session.id, { ...firstPlayer, name: "Updated Player" });
+    expect(changedRoster.status).toBe("DRAFT");
     expect(await localFairPlayApi.getSchedule(session.id)).toBeUndefined();
   });
 });

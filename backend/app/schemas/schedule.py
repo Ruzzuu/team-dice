@@ -27,11 +27,29 @@ class SchedulePlayerInput(BaseModel):
         return self
 
 
+class PlayerScheduleHistoryInput(BaseModel):
+    player_id: str = Field(min_length=1, max_length=120)
+    rounds_played: int = Field(default=0, ge=0)
+    rest_count: int = Field(default=0, ge=0)
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class ScheduleContinuationInput(BaseModel):
+    next_start_time: time
+    round_number_offset: int = Field(ge=0)
+    player_history: List[PlayerScheduleHistoryInput] = Field(default_factory=list)
+    previous_resting_player_ids: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ScheduleGenerateRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=120)
     session: SessionCreate
     players: List[SchedulePlayerInput] = Field(min_length=2)
     seed: int = 0
+    continuation: Optional[ScheduleContinuationInput] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -40,6 +58,14 @@ class ScheduleGenerateRequest(BaseModel):
         player_ids = [player.id for player in self.players]
         if len(player_ids) != len(set(player_ids)):
             raise ValueError("player ids must be unique")
+        if self.continuation is not None:
+            history_ids = [entry.player_id for entry in self.continuation.player_history]
+            if len(history_ids) != len(set(history_ids)):
+                raise ValueError("player history ids must be unique")
+            unknown_history = set(history_ids).difference(player_ids)
+            unknown_resting = set(self.continuation.previous_resting_player_ids).difference(player_ids)
+            if unknown_history or unknown_resting:
+                raise ValueError("continuation players must be present in players")
         if self.session.number_of_rounds < 1:
             raise ValueError("the session must contain at least one complete round")
         return self

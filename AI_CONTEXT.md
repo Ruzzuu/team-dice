@@ -51,8 +51,8 @@ Implemented foundation:
 - reusable session timing/capacity calculation,
 - health endpoint and automated foundation tests,
 - Docker Compose configuration for the API and PostgreSQL,
-- responsive React/TypeScript frontend prototype with local draft persistence,
-- dashboard, session creation, player roster, demo schedule, and fairness views,
+- mobile-first React/TypeScript frontend with local draft persistence,
+- data-driven dashboard, guided session creation, player roster, schedule, and fairness views,
 - typed frontend service boundary ready for future FastAPI integration.
 
 Current target:
@@ -66,12 +66,14 @@ Current target:
 
 Frontend:
 - React 18, TypeScript, Vite, and React Router.
-- Modern responsive sports-dashboard interface.
+- Mobile-first sporty interface with reusable design tokens, responsive layouts, accessible dialogs, keyboard focus states, and reduced-motion support.
+- Organizer workflow communicates Setup → Players → Schedule → Play progress and always explains unavailable primary actions.
+- Dashboard metrics are derived from user sessions and generated schedules; the seeded demo remains a separate read-only sample.
 - Shared player-name presentation formats long names consistently and uses uppercase two-letter avatar initials.
 - Schedule rounds use responsive Team A/Team B court panels and readable resting-player cards.
 - Browser-local persistence for user-created draft sessions and player rosters.
-- A seeded, read-only schedule demonstrates future schedule and fairness views.
-- Vitest and Testing Library cover presentation timing, persistence, and the dashboard.
+- A seeded, read-only schedule demonstrates schedule and fairness views without affecting user workspace metrics.
+- Vitest and Testing Library cover presentation, timing, persistence, metrics, dialogs, validation, and the complete generate/start lifecycle.
 
 Backend:
 - FastAPI on Python 3.9+.
