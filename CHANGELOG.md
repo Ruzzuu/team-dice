@@ -8,6 +8,31 @@ Use `AI_CONTEXT.md` for the current state.
 
 ---
 
+## 2026-08-30 — Live round results and remaining-roster replanning
+
+### Added
+
+- Added per-court score, draw, and completed-without-score recording for active rounds.
+- Added post-round player departures that preserve the original lineup and result history while excluding departed players from future matches.
+- Added explicit next-round starts and confirmed manual replanning between rounds.
+- Added continuation scheduling inputs for completed play/rest counts, prior rests, next start time, and round-number offsets.
+- Added reduced-roster scheduling that avoids one-player and over-capacity courts.
+
+### Changed
+
+- Active and completed sessions now lock setup and roster changes, while completed results remain visible and immutable.
+- Live controls now recover safely when replanning fails: saved results and departure states remain local and the organizer can retry.
+- Schedule views focus on the current area of the timeline and visibly distinguish live, completed, and scored matches.
+
+### Verification
+
+- Frontend suite passes 50 tests and the TypeScript/Vite production build succeeds.
+- Backend suite passes 40 tests, including continuation timing/history and reduced-roster scenarios.
+
+### Architectural Decision
+
+- Keep live state browser-local for the MVP while all initial and continuation scheduling rules remain in FastAPI.
+
 ## 2026-08-29 — Mobile-first UI and organizer workflow overhaul
 
 ### Added

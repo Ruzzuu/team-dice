@@ -38,15 +38,24 @@ export function CompleteRoundDialog({
     event.preventDefault();
     const results = round.courts.map((court) => {
       const draft = scores[court.courtNumber];
-      if (!draft.completedWithoutScore && (draft.teamA === "" || draft.teamB === "")) return undefined;
+      const teamAScore = Number(draft.teamA);
+      const teamBScore = Number(draft.teamB);
+      if (!draft.completedWithoutScore && (
+        draft.teamA === ""
+        || draft.teamB === ""
+        || !Number.isInteger(teamAScore)
+        || !Number.isInteger(teamBScore)
+        || teamAScore < 0
+        || teamBScore < 0
+      )) return undefined;
       return {
         courtNumber: court.courtNumber,
-        teamAScore: draft.completedWithoutScore ? undefined : Number(draft.teamA),
-        teamBScore: draft.completedWithoutScore ? undefined : Number(draft.teamB),
+        teamAScore: draft.completedWithoutScore ? undefined : teamAScore,
+        teamBScore: draft.completedWithoutScore ? undefined : teamBScore,
         completedWithoutScore: draft.completedWithoutScore,
       };
     });
-    if (results.some((result) => !result)) return setError("Enter both scores for every court, or mark the match completed without a score.");
+    if (results.some((result) => !result)) return setError("Enter non-negative whole-number scores for every court, or mark the match completed without a score.");
     setError("");
     onConfirm({ roundId: round.id, results: results as CompleteRoundInput["results"], departingPlayerIds: departing });
   }
@@ -64,7 +73,7 @@ export function CompleteRoundDialog({
             return (
               <fieldset className="court-result-form" key={court.courtNumber}>
                 <legend><Trophy />Court {court.courtNumber}</legend>
-                <div className="score-entry"><label><span>Team A</span><small>{teamA}</small><input type="number" min="0" inputMode="numeric" aria-label={`Court ${court.courtNumber} Team A score`} value={draft.teamA} disabled={draft.completedWithoutScore} onChange={(event) => updateScore(court.courtNumber, { teamA: event.target.value })} /></label><strong>–</strong><label><span>Team B</span><small>{teamB}</small><input type="number" min="0" inputMode="numeric" aria-label={`Court ${court.courtNumber} Team B score`} value={draft.teamB} disabled={draft.completedWithoutScore} onChange={(event) => updateScore(court.courtNumber, { teamB: event.target.value })} /></label></div>
+                <div className="score-entry"><label><span>Team A</span><small>{teamA}</small><input type="number" min="0" step="1" inputMode="numeric" aria-label={`Court ${court.courtNumber} Team A score`} value={draft.teamA} disabled={draft.completedWithoutScore} onChange={(event) => updateScore(court.courtNumber, { teamA: event.target.value })} /></label><strong>–</strong><label><span>Team B</span><small>{teamB}</small><input type="number" min="0" step="1" inputMode="numeric" aria-label={`Court ${court.courtNumber} Team B score`} value={draft.teamB} disabled={draft.completedWithoutScore} onChange={(event) => updateScore(court.courtNumber, { teamB: event.target.value })} /></label></div>
                 <label className="checkbox-row"><input type="checkbox" checked={draft.completedWithoutScore} onChange={(event) => updateScore(court.courtNumber, { completedWithoutScore: event.target.checked })} /><span>Completed without recording a score</span></label>
               </fieldset>
             );

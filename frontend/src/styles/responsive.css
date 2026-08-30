@@ -11,6 +11,7 @@
   .schedule-review-actions { grid-template-columns: repeat(3, max-content); }.schedule-review-actions .button { width: auto; }
   .court-match__teams { grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); }
   .fairness-metrics { grid-template-columns: repeat(3, 1fr); }
+  .departure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 768px) {
@@ -26,13 +27,13 @@
   .session-page { padding: 0 0 70px; }.session-topbar { align-items: center; justify-content: space-between; flex-direction: row; padding: 28px max(32px, calc((100vw - var(--sidebar-width) - 1240px) / 2)); }.session-title-block { width: auto; }.session-heading { align-items: center; flex-direction: row; }.session-heading h1 { font-size: 30px; }.settings-button { width: auto; }
   .tab-nav { padding: 0 max(32px, calc((100vw - var(--sidebar-width) - 1240px) / 2)); }.tab-nav button { min-height: 58px; padding: 0 20px; }.session-body { width: min(100% - 64px, 1240px); padding-top: 24px; }
   .session-progress { gap: 8px; padding: 10px; }.session-progress button { min-height: 72px; flex-direction: row; gap: 10px; padding: 9px 12px; }.session-progress li::before { top: 35px; right: calc(50% + 30px); left: calc(-50% + 30px); }.session-progress__copy { text-align: left; }.session-progress__copy strong { font-size: 12px; }.session-progress__copy small { display: block; }
-  .session-action-bar { position: static; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 15px 17px; }.session-primary-action { width: auto; }.action-message strong { font-size: 14px; }.action-message p { font-size: 13px; }
+  .session-action-bar { position: static; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 15px 17px; }.session-live-actions { display: flex; justify-content: flex-end; }.session-live-actions .button, .session-primary-action { width: auto; }.action-message strong { font-size: 14px; }.action-message p { font-size: 13px; }
   .panel-heading { align-items: center; flex-direction: row; padding: 22px 24px; }
   .schedule-review-toolbar { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 15px 24px; }
   .round-list { padding: 8px 16px 18px; }.round-card { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 16px; padding: 16px; }.round-index { display: block; margin: 0; padding: 0 14px 0 0; border-right: 1px solid var(--line); border-bottom: 0; }.round-index > strong { display: block; margin-top: 2px; font-size: 26px; }.round-index p { display: block; margin: 10px 0 0; line-height: 1.5; }.round-index p svg { display: none; }.resting-list { grid-column: 2; }
-  .player-list { padding: 0 20px 14px; gap: 0; }.player-row { grid-template-columns: 44px minmax(0, 1fr) 100px 110px 94px; padding: 12px 4px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: white; }.skill-dots, .availability { display: flex; }.row-actions { justify-content: flex-end; }
+  .player-list { padding: 0 20px 14px; gap: 0; }.player-row { grid-template-columns: 44px minmax(0, 1fr) 100px 110px 94px; padding: 12px 4px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: white; }.skill-dots, .availability { display: flex; }.availability--left { grid-column: auto; }.row-actions { justify-content: flex-end; }
   .fairness-hero { align-items: center; flex-direction: row; gap: 30px; padding: 34px 40px; }.score-ring { width: 126px; height: 126px; }.score-ring::before { width: 98px; height: 98px; }.fairness-table { padding: 4px 24px 16px; }.fairness-row { grid-template-columns: 1.3fr 2fr 0.5fr 0.5fr; min-height: 62px; padding: 8px 0; }.fairness-row--head { display: grid; min-height: 42px; color: var(--ink-500); font-size: 11px; font-weight: 800; text-transform: uppercase; }.time-bar { grid-column: auto; grid-row: auto; }.fairness-row > span[data-label]::before { display: none; }
-  .dialog-backdrop { align-items: center; padding: 24px; }.dialog-panel { width: min(540px, 100%); max-height: calc(100vh - 48px); padding: 28px; border-radius: var(--radius-md); animation-name: dialog-in; }.settings-dialog { width: min(670px, 100%); }.confirmation-dialog { width: min(460px, 100%); } @keyframes dialog-in { from { transform: translateY(8px) scale(0.98); opacity: 0; } }
+  .dialog-backdrop { align-items: center; padding: 24px; }.dialog-panel { width: min(540px, 100%); max-height: calc(100vh - 48px); padding: 28px; border-radius: var(--radius-md); animation-name: dialog-in; }.settings-dialog { width: min(670px, 100%); }.confirmation-dialog { width: min(460px, 100%); }.complete-round-dialog { width: min(760px, 100%); }.complete-round-dialog .form-actions { bottom: -28px; margin-right: -28px; margin-left: -28px; padding-right: 28px; padding-left: 28px; } @keyframes dialog-in { from { transform: translateY(8px) scale(0.98); opacity: 0; } }
 }
 
 @media (min-width: 1080px) {

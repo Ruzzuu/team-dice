@@ -75,8 +75,9 @@ describe("SessionPage lifecycle", () => {
     expect(screen.getByRole("dialog", { name: /start this session/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /start now/i }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /session active/i })).toBeDisabled());
-    expect(screen.getByText(/settings and roster editing are locked/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /complete current round/i })).toBeEnabled());
+    expect(screen.getByText(/save its results before changing/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^settings$/i })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /reshuffle teams/i })).not.toBeInTheDocument();
   });
 
@@ -181,5 +182,79 @@ describe("SessionPage lifecycle", () => {
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
+  });
+
+  it("saves live scores, marks a departing player, replans, and starts the next round", async () => {
+    const user = userEvent.setup();
+    const activeSession: Session = {
+      ...session,
+      status: "ACTIVE",
+      players: [...session.players, { id: "p3", name: "Player Three", skillRating: 3 }],
+    };
+    localStorage.setItem("fairplay.prototype.sessions.v1", JSON.stringify([activeSession]));
+    localStorage.setItem("fairplay.prototype.schedules.v1", JSON.stringify({ [session.id]: {
+      sessionId: session.id,
+      generationSeed: 0,
+      isDemo: false,
+      rounds: [
+        { id: "round-1", number: 1, startTime: "19:00", endTime: "19:15", status: "ACTIVE", courts: [{ courtNumber: 1, teamA: ["p1", "p2"], teamB: ["p3"] }], restingPlayerIds: [] },
+        { id: "round-2", number: 2, startTime: "19:15", endTime: "19:30", status: "UPCOMING", courts: [{ courtNumber: 1, teamA: ["p1", "p3"], teamB: ["p2"] }], restingPlayerIds: [] },
+      ],
+      fairness: { score: 100, spreadMinutes: 0, averageMinutes: 30, players: [] },
+    } }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...schedulerResponse(),
+        rounds: [{
+          id: "continued-round-2", number: 2, start_time: "19:15:00", end_time: "19:30:00",
+          courts: [{ court_number: 1, team_a: ["p1"], team_b: ["p2"] }], resting_player_ids: [], status: "UPCOMING",
+        }],
+      }),
+    }));
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /complete current round/i }));
+    expect(screen.getByRole("dialog", { name: /save results and finish round/i })).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/court 1 team a score/i), "21");
+    await user.type(screen.getByLabelText(/court 1 team b score/i), "18");
+    await user.click(screen.getByRole("checkbox", { name: "Player Three" }));
+    await user.click(screen.getByRole("button", { name: /finish and replan/i }));
+
+    expect(await screen.findByText(/departing players were marked left/i)).toBeInTheDocument();
+    expect(screen.getByText("21–18")).toBeInTheDocument();
+    expect(screen.getByText(/team a won/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /start next round/i })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: /replan remaining/i }));
+    expect(screen.getByRole("dialog", { name: /rebuild future matches/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /keep current/i }));
+    await user.click(screen.getAllByRole("button", { name: /players/i })[0]);
+    expect(await screen.findByText(/left after round 1/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /start next round/i }));
+    expect(await screen.findByText(/round 2 is now live/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /complete current round/i })).toBeEnabled();
+  });
+
+  it("supports completing a match without a score and locks a finished session", async () => {
+    const user = userEvent.setup();
+    const activeSession: Session = { ...session, status: "ACTIVE" };
+    localStorage.setItem("fairplay.prototype.sessions.v1", JSON.stringify([activeSession]));
+    localStorage.setItem("fairplay.prototype.schedules.v1", JSON.stringify({ [session.id]: {
+      sessionId: session.id,
+      generationSeed: 0,
+      isDemo: false,
+      rounds: [{ id: "round-1", number: 1, startTime: "19:00", endTime: "19:15", status: "ACTIVE", courts: [{ courtNumber: 1, teamA: ["p1"], teamB: ["p2"] }], restingPlayerIds: [] }],
+      fairness: { score: 100, spreadMinutes: 0, averageMinutes: 15, players: [] },
+    } }));
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /complete current round/i }));
+    await user.click(screen.getByRole("checkbox", { name: /completed without recording/i }));
+    await user.click(screen.getByRole("button", { name: /^finish round$/i }));
+
+    expect(await screen.findByText(/final results saved/i)).toBeInTheDocument();
+    expect(screen.getByText(/completed · no score/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /session completed/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^settings$/i })).toBeDisabled();
   });
 });

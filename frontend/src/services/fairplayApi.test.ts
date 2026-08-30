@@ -24,6 +24,33 @@ function scheduleResponse(sessionId: string, teamA = ["p1", "p2"], teamB = ["p3"
   };
 }
 
+function multiRoundResponse(sessionId: string, playerIds = ["p1", "p2", "p3", "p4"], firstRoundNumber = 1, roundCount = 3) {
+  const startMinutes = 19 * 60 + (firstRoundNumber - 1) * 15;
+  const time = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
+  return {
+    session_id: sessionId,
+    session_status: "READY",
+    rounds: Array.from({ length: roundCount }, (_, index) => {
+      const number = firstRoundNumber + index;
+      return {
+        id: `${sessionId}-round-${number}`,
+        number,
+        start_time: time(startMinutes + index * 15),
+        end_time: time(startMinutes + (index + 1) * 15),
+        courts: [{ court_number: 1, team_a: playerIds.slice(0, Math.ceil(playerIds.length / 2)), team_b: playerIds.slice(Math.ceil(playerIds.length / 2)) }],
+        resting_player_ids: [],
+        status: "UPCOMING",
+      };
+    }),
+    fairness: {
+      score: 100,
+      spread_minutes: 0,
+      average_minutes: roundCount * 15,
+      players: playerIds.map((id) => ({ player_id: id, playing_minutes: roundCount * 15, rounds_played: roundCount, rest_count: 0 })),
+    },
+  };
+}
+
 async function createFourPlayerSession() {
   let session = await localFairPlayApi.createSession({
     name: "Four Player Game",
@@ -177,5 +204,124 @@ describe("localFairPlayApi", () => {
     const changedRoster = await localFairPlayApi.savePlayer(session.id, { ...firstPlayer, name: "Updated Player" });
     expect(changedRoster.status).toBe("DRAFT");
     expect(await localFairPlayApi.getSchedule(session.id)).toBeUndefined();
+  });
+
+  it("saves a round result and waits for an explicit next-round start", async () => {
+    const session = await createFourPlayerSession();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => multiRoundResponse(session.id) }));
+    await localFairPlayApi.generateSchedule(session);
+    await localFairPlayApi.startSession(session.id);
+
+    const completed = await localFairPlayApi.completeRound(session.id, {
+      roundId: `${session.id}-round-1`,
+      results: [{ courtNumber: 1, teamAScore: 21, teamBScore: 17, completedWithoutScore: false }],
+      departingPlayerIds: [],
+    });
+
+    expect(completed.session.status).toBe("ACTIVE");
+    expect(completed.schedule.rounds[0]).toMatchObject({ status: "COMPLETED", completedAt: expect.any(String) });
+    expect(completed.schedule.rounds[0].courts[0].result).toMatchObject({ teamAScore: 21, teamBScore: 17, winner: "A" });
+    expect(completed.schedule.rounds[1].status).toBe("UPCOMING");
+    expect(completed.schedule.rounds.some((round) => round.status === "ACTIVE")).toBe(false);
+
+    const next = await localFairPlayApi.startNextRound(session.id);
+    expect(next.schedule.rounds[1].status).toBe("ACTIVE");
+  });
+
+  it("keeps completed history and replans with only players who remain", async () => {
+    const session = await createFourPlayerSession();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => multiRoundResponse(session.id) })
+      .mockResolvedValueOnce({ ok: true, json: async () => multiRoundResponse(session.id, ["p1", "p2", "p3"], 2, 2) });
+    vi.stubGlobal("fetch", fetchMock);
+    await localFairPlayApi.generateSchedule(session);
+    await localFairPlayApi.startSession(session.id);
+
+    const replanned = await localFairPlayApi.completeRound(session.id, {
+      roundId: `${session.id}-round-1`,
+      results: [{ courtNumber: 1, teamAScore: 12, teamBScore: 12, completedWithoutScore: false }],
+      departingPlayerIds: ["p4"],
+    });
+
+    expect(replanned.session.players.find((player) => player.id === "p4")).toMatchObject({ participationStatus: "LEFT", leftAfterRoundNumber: 1 });
+    expect(replanned.schedule.rounds[0].courts[0].result?.winner).toBe("DRAW");
+    expect(replanned.schedule.rounds.slice(1).flatMap((round) => round.courts.flatMap((court) => [...court.teamA, ...court.teamB]))).not.toContain("p4");
+    expect(replanned.schedule.rounds[1].status).toBe("UPCOMING");
+
+    const request = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(request.players.map((player: { id: string }) => player.id)).toEqual(["p1", "p2", "p3"]);
+    expect(request.continuation).toMatchObject({ next_start_time: "19:15", round_number_offset: 1 });
+    expect(request.continuation.player_history).toEqual(expect.arrayContaining([
+      { player_id: "p1", rounds_played: 1, rest_count: 0 },
+      { player_id: "p2", rounds_played: 1, rest_count: 0 },
+    ]));
+  });
+
+  it("preserves saved results and departures when automatic replanning fails", async () => {
+    const session = await createFourPlayerSession();
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => multiRoundResponse(session.id) })
+      .mockRejectedValueOnce(new Error("offline")));
+    await localFairPlayApi.generateSchedule(session);
+    await localFairPlayApi.startSession(session.id);
+
+    await expect(localFairPlayApi.completeRound(session.id, {
+      roundId: `${session.id}-round-1`,
+      results: [{ courtNumber: 1, completedWithoutScore: true }],
+      departingPlayerIds: ["p4"],
+    })).rejects.toThrow(/backend could not be reached/i);
+
+    expect((await localFairPlayApi.getSession(session.id))?.players.find((player) => player.id === "p4")?.participationStatus).toBe("LEFT");
+    const savedSchedule = await localFairPlayApi.getSchedule(session.id);
+    expect(savedSchedule?.rounds).toHaveLength(1);
+    expect(savedSchedule?.rounds[0].courts[0].result?.winner).toBe("UNRECORDED");
+  });
+
+  it("completes the session when fewer than two active players remain", async () => {
+    let session = await localFairPlayApi.createSession({
+      name: "Two Player Game", date: "2026-08-21", startTime: "19:00", endTime: "20:00",
+      warmupMinutes: 0, cleanupMinutes: 0, roundDurationMinutes: 15, courtCount: 1, playersPerCourt: 2,
+    });
+    session = await localFairPlayApi.savePlayer(session.id, { id: "p1", name: "One" });
+    session = await localFairPlayApi.savePlayer(session.id, { id: "p2", name: "Two" });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => multiRoundResponse(session.id, ["p1", "p2"]) });
+    vi.stubGlobal("fetch", fetchMock);
+    await localFairPlayApi.generateSchedule(session);
+    await localFairPlayApi.startSession(session.id);
+
+    const completed = await localFairPlayApi.completeRound(session.id, {
+      roundId: `${session.id}-round-1`,
+      results: [{ courtNumber: 1, completedWithoutScore: true }],
+      departingPlayerIds: ["p2"],
+    });
+
+    expect(completed.session.status).toBe("COMPLETED");
+    expect(completed.schedule.rounds).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects duplicate court results and locks completed session setup", async () => {
+    const session = await createFourPlayerSession();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => multiRoundResponse(session.id, undefined, 1, 1) }));
+    await localFairPlayApi.generateSchedule(session);
+    await localFairPlayApi.startSession(session.id);
+
+    await expect(localFairPlayApi.completeRound(session.id, {
+      roundId: `${session.id}-round-1`,
+      results: [
+        { courtNumber: 1, completedWithoutScore: true },
+        { courtNumber: 1, completedWithoutScore: true },
+      ],
+      departingPlayerIds: [],
+    })).rejects.toThrow(/exactly one result/i);
+
+    const completed = await localFairPlayApi.completeRound(session.id, {
+      roundId: `${session.id}-round-1`,
+      results: [{ courtNumber: 1, completedWithoutScore: true }],
+      departingPlayerIds: [],
+    });
+    expect(completed.session.status).toBe("COMPLETED");
+    await expect(localFairPlayApi.savePlayer(session.id, { name: "Too late" })).rejects.toThrow(/locked after play/i);
+    await expect(localFairPlayApi.updateSession(session.id, completed.session)).rejects.toThrow(/locked after play/i);
   });
 });

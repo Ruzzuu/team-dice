@@ -39,7 +39,7 @@ export function validateSessionForSchedule(session: Session): string | undefined
   const timing = calculateTimingPreview(session);
   if (!timing.isValid || timing.numberOfRounds < 1) return "Session timing must contain at least one complete round.";
   if (!Number.isInteger(session.courtCount) || session.courtCount < 1) return "Number of courts must be at least 1.";
-  if (!Number.isInteger(session.playersPerCourt) || session.playersPerCourt < 1) return "Players per court must be at least 1.";
+  if (!Number.isInteger(session.playersPerCourt) || session.playersPerCourt < 2) return "Players per court must be at least 2 so every match has two sides.";
   if (session.players.length < 2) return `Add ${2 - session.players.length} more player${session.players.length === 1 ? "" : "s"} before generating a schedule.`;
 
   const ids = new Set<string>();

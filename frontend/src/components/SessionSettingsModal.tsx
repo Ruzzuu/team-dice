@@ -61,7 +61,7 @@ export function SessionSettingsModal({
         </div>
         <div className="field-grid">
           <div className="field"><label htmlFor="settings-courts">Courts</label><input id="settings-courts" type="number" min="1" value={form.courtCount} onChange={(event) => update("courtCount", Number(event.target.value))} /></div>
-          <div className="field"><label htmlFor="settings-capacity">Players per court</label><input id="settings-capacity" type="number" min="1" value={form.playersPerCourt} onChange={(event) => update("playersPerCourt", Number(event.target.value))} /></div>
+          <div className="field"><label htmlFor="settings-capacity">Players per court</label><input id="settings-capacity" type="number" min="2" value={form.playersPerCourt} onChange={(event) => update("playersPerCourt", Number(event.target.value))} /></div>
         </div>
         <div className="field-grid">
           <div className="field"><label htmlFor="settings-warmup">Warm-up</label><input id="settings-warmup" type="number" min="0" value={form.warmupMinutes} onChange={(event) => update("warmupMinutes", Number(event.target.value))} /></div>

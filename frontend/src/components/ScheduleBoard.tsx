@@ -43,8 +43,16 @@ export function ScheduleBoard({
   }
 
   const activeRound = schedule.rounds.find((round) => round.status === "ACTIVE");
-  const visibleRounds = showAllRounds ? schedule.rounds : schedule.rounds.slice(0, 3);
-  const hiddenRoundCount = schedule.rounds.length - visibleRounds.length;
+  const lastCompletedIndex = schedule.rounds.reduce((lastIndex, round, index) => round.status === "COMPLETED" ? index : lastIndex, 0);
+  const focusIndex = activeRound
+    ? schedule.rounds.findIndex((round) => round.id === activeRound.id)
+    : session.status === "ACTIVE"
+      ? lastCompletedIndex
+      : 0;
+  const visibleStart = Math.max(0, Math.min(focusIndex - 1, schedule.rounds.length - 3));
+  const visibleRounds = showAllRounds ? schedule.rounds : schedule.rounds.slice(visibleStart, visibleStart + 3);
+  const activePlayerCount = session.players.filter((player) => player.participationStatus !== "LEFT").length;
+  const leftPlayerCount = session.players.length - activePlayerCount;
 
   return (
     <section className="workspace-panel schedule-panel">
@@ -61,7 +69,7 @@ export function ScheduleBoard({
       )}
       <div className="schedule-summary" aria-label="Schedule summary">
         <div><Clock3 /><span><strong>{schedule.rounds[0]?.startTime}–{schedule.rounds.at(-1)?.endTime}</strong><small>Playing window</small></span></div>
-        <div><UsersRound /><span><strong>{session.players.length} players</strong><small>{Math.max(0, session.players.length - session.courtCount * session.playersPerCourt)} rest each round</small></span></div>
+        <div><UsersRound /><span><strong>{session.status === "ACTIVE" || session.status === "COMPLETED" ? `${activePlayerCount} active players` : `${session.players.length} players`}</strong><small>{leftPlayerCount ? `${leftPlayerCount} left · history retained` : `${Math.max(0, activePlayerCount - session.courtCount * session.playersPerCourt)} rest each round`}</small></span></div>
         <div><Coffee /><span><strong>{schedule.fairness.spreadMinutes} min spread</strong><small>Closest fair balance</small></span></div>
       </div>
       <div className="round-list">
@@ -85,7 +93,7 @@ export function ScheduleBoard({
             {round.status === "ACTIVE" && <div className="live-flag"><i />Now playing</div>}
           </article>
         ))}
-        {schedule.rounds.length > 3 && <button className="show-rounds-button" type="button" onClick={() => setShowAllRounds((current) => !current)}>{showAllRounds ? "Show fewer rounds" : `Show ${hiddenRoundCount} more rounds`}<ChevronDown className={showAllRounds ? "is-open" : ""} /></button>}
+        {schedule.rounds.length > 3 && <button className="show-rounds-button" type="button" onClick={() => setShowAllRounds((current) => !current)}>{showAllRounds ? "Show focused rounds" : `Show all ${schedule.rounds.length} rounds`}<ChevronDown className={showAllRounds ? "is-open" : ""} /></button>}
       </div>
     </section>
   );

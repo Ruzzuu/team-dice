@@ -71,6 +71,7 @@ Frontend:
 - Dashboard metrics are derived from user sessions and generated schedules; the seeded demo remains a separate read-only sample.
 - Shared player-name presentation formats long names consistently and uses uppercase two-letter avatar initials.
 - Schedule rounds use responsive Team A/Team B court panels and readable resting-player cards.
+- Active sessions support score/no-score completion, immutable completed-round history, player departures, explicit next-round starts, and manual or automatic replanning for the remaining roster.
 - Browser-local persistence for user-created draft sessions and player rosters.
 - A seeded, read-only schedule demonstrates schedule and fairness views without affecting user workspace metrics.
 - Vitest and Testing Library cover presentation, timing, persistence, metrics, dialogs, validation, and the complete generate/start lifecycle.
@@ -86,8 +87,9 @@ Database:
 - In-memory SQLite is used only for isolated model tests.
 
 Scheduler:
-- Basic deterministic scheduler is implemented under `backend/app/domain`.
+- Deterministic initial and continuation scheduling is implemented under `backend/app/domain`.
 - Hard availability and capacity constraints are enforced before playing-time fairness and consecutive-rest preferences.
+- Continuation scheduling carries completed playing/rest history forward, offsets round numbers and times, and avoids one-player or over-capacity courts for reduced rosters.
 - `POST /api/schedules/generate` returns rounds, assignments, rests, and fairness metrics without persisting them.
 
 Development:
@@ -203,6 +205,8 @@ If a change is fundamental, record:
 6. The frontend loads a seeded demonstration session plus locally saved drafts through a typed `FairPlayApi` adapter.
 7. New sessions, roster changes, lifecycle status, and generated schedules remain in browser local storage until the corresponding backend APIs exist.
 8. Draft sessions can generate a backend-calculated schedule, review fairness, and transition from `DRAFT` to `READY` to `ACTIVE`; settings or roster edits before activation invalidate the previous schedule.
+9. During play, each active round is completed with scores or an explicit no-score result. Departing players are marked `LEFT`, completed history stays immutable, and the backend rebuilds only future rounds using cumulative playing/rest history.
+10. The organizer explicitly starts each next round. A session becomes `COMPLETED` when no match remains, fewer than two active players remain, or no playable continuation is available.
 
 ## Environment and Configuration
 
@@ -221,8 +225,8 @@ and persistence phase.
 
 ## Known Limitations
 
-- There are no persistent player, round, assignment, CRUD, live-round progression, statistics, or history features yet.
-- The scheduler is an MVP greedy fairness implementation; dynamic rescheduling and manual overrides are not implemented.
+- There are no server-persisted player, round, assignment, CRUD, statistics, or history records yet; live session state exists only in one browser.
+- The scheduler is an MVP greedy fairness implementation; dynamic continuation is supported, but manual court/team editing is not implemented.
 - Frontend draft data is local to one browser and is not authenticated or synchronized.
 - Newly created sessions use the backend scheduler, but their generated schedules remain local to the browser.
 - Session times are same-day local wall-clock values with whole-minute precision; overnight sessions are rejected.

@@ -12,6 +12,7 @@ export function PlayerRoster({ session, onChange, addRequest = 0, hasSchedule = 
   const [error, setError] = useState("");
   const isDemo = session.id === "demo-friday-badminton";
   const isEditable = !isDemo && (session.status === "DRAFT" || session.status === "READY");
+  const activePlayerCount = session.players.filter((player) => player.participationStatus !== "LEFT").length;
 
   useEffect(() => {
     if (addRequest > 0 && isEditable) startEdit();
@@ -54,10 +55,10 @@ export function PlayerRoster({ session, onChange, addRequest = 0, hasSchedule = 
 
   return (
     <section className="workspace-panel roster-panel">
-      <div className="panel-heading"><div><p className="eyebrow">Step 2</p><h2>Player roster</h2><p>{session.players.length} players · {Math.max(0, session.players.length - session.courtCount * session.playersPerCourt)} resting each round</p></div>{isEditable && <button className="button button--primary button--small" onClick={() => startEdit()}><Plus />Add player</button>}</div>
+      <div className="panel-heading"><div><p className="eyebrow">Step 2</p><h2>Player roster</h2><p>{session.status === "ACTIVE" || session.status === "COMPLETED" ? `${activePlayerCount} active · ${session.players.length - activePlayerCount} left` : `${session.players.length} players · ${Math.max(0, session.players.length - session.courtCount * session.playersPerCourt)} resting each round`}</p></div>{isEditable && <button className="button button--primary button--small" onClick={() => startEdit()}><Plus />Add player</button>}</div>
       {hasSchedule && isEditable && <div className="roster-change-warning">Editing, adding, or removing a player will clear the current schedule so it can be generated again.</div>}
       {isDemo && <div className="demo-banner">Demo roster is read-only. Create a new session to manage your own players.</div>}
-      {session.status === "ACTIVE" && <div className="demo-banner">Roster editing is locked while this session is active.</div>}
+      {(session.status === "ACTIVE" || session.status === "COMPLETED") && <div className="demo-banner">Roster editing is locked because this session has started. Players marked Left remain in the match history.</div>}
       {session.players.length ? (
         <div className="player-list">
           {session.players.map((player, index) => (

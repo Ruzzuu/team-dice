@@ -54,7 +54,9 @@ class ScheduleGenerateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_unique_players(self) -> "ScheduleGenerateRequest":
+    def validate_schedule_inputs(self) -> "ScheduleGenerateRequest":
+        if self.session.players_per_court < 2:
+            raise ValueError("players_per_court must be at least 2 for a valid match")
         player_ids = [player.id for player in self.players]
         if len(player_ids) != len(set(player_ids)):
             raise ValueError("player ids must be unique")

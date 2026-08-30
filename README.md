@@ -48,7 +48,7 @@ The frontend keeps sessions and generated schedules in browser-local storage. Sc
 
 The interface is mobile-first and follows the organizer workflow: create a session, add players, generate and review the schedule, then start play. The demo session is a separate read-only sample and is not included in workspace metrics.
 
-Before starting play, organizers can revise session settings or players and regenerate the schedule, or request another automatically balanced team arrangement. Once the session starts, schedule and roster changes are locked.
+Before starting play, organizers can revise session settings or players and regenerate the schedule, or request another automatically balanced team arrangement. Once play starts, setup and roster editing are locked. Organizers complete each round by recording scores (or choosing no score), can mark players as leaving, and explicitly start the next round. Completed results stay in history while future matches can be rebuilt for only the remaining active players.
 
 ```sh
 cd frontend
@@ -69,7 +69,7 @@ npm run build
 
 ## Scheduler API
 
-`POST /api/schedules/generate` accepts session configuration, players, availability, and an optional deterministic seed. It returns upcoming rounds, court/team assignments, resting players, and fairness metrics. Session CRUD and schedule persistence remain browser-local during this MVP phase.
+`POST /api/schedules/generate` accepts session configuration, players, availability, an optional deterministic seed, and optional continuation history for rebuilding future rounds. It returns upcoming rounds, court/team assignments, resting players, and cumulative fairness metrics. Session CRUD, live results, departures, and schedule history remain browser-local during this MVP phase.
 
 ## Deploy to Render
 

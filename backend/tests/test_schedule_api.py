@@ -48,6 +48,15 @@ def test_generate_schedule_requires_two_players() -> None:
     assert response.status_code == 422
 
 
+def test_generate_schedule_requires_two_sides_per_court() -> None:
+    payload = valid_payload()
+    payload["session"]["players_per_court"] = 1
+
+    response = client.post("/api/schedules/generate", json=payload)
+
+    assert response.status_code == 422
+
+
 def test_generate_schedule_rejects_duplicate_player_ids() -> None:
     payload = valid_payload()
     payload["players"] = [
@@ -75,3 +84,53 @@ def test_generate_schedule_rejects_invalid_availability() -> None:
     response = client.post("/api/schedules/generate", json=payload)
 
     assert response.status_code == 422
+
+
+def test_generate_schedule_continues_after_completed_rounds() -> None:
+    payload = valid_payload()
+    payload["continuation"] = {
+        "next_start_time": "20:00",
+        "round_number_offset": 4,
+        "player_history": [
+            {"player_id": f"p{index}", "rounds_played": 3, "rest_count": 1}
+            for index in range(10)
+        ],
+        "previous_resting_player_ids": ["p8", "p9"],
+    }
+
+    response = client.post("/api/schedules/generate", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [scheduled_round["number"] for scheduled_round in body["rounds"]] == [5, 6, 7, 8]
+    assert body["rounds"][0]["start_time"] == "20:00:00"
+    assert min(player["rounds_played"] for player in body["fairness"]["players"]) >= 6
+
+
+def test_generate_schedule_rejects_unknown_continuation_player() -> None:
+    payload = valid_payload()
+    payload["continuation"] = {
+        "next_start_time": "20:00",
+        "round_number_offset": 4,
+        "player_history": [{"player_id": "not-active", "rounds_played": 1}],
+        "previous_resting_player_ids": [],
+    }
+
+    response = client.post("/api/schedules/generate", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_generate_schedule_rejects_continuation_without_remaining_time() -> None:
+    payload = valid_payload()
+    payload["continuation"] = {
+        "next_start_time": "20:50",
+        "round_number_offset": 7,
+        "player_history": [],
+        "previous_resting_player_ids": [],
+    }
+
+    response = client.post("/api/schedules/generate", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "no complete rounds remain"

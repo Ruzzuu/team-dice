@@ -146,6 +146,12 @@ function isActivePlayer(player: Player): boolean {
   return player.participationStatus !== "LEFT";
 }
 
+function assertSetupEditable(session: Session): void {
+  if (session.status === "ACTIVE" || session.status === "COMPLETED") {
+    throw new Error("Session settings and rosters are locked after play has started.");
+  }
+}
+
 function getLocalSession(sessionId: string): Session {
   const session = readLocalSessions().find((item) => item.id === sessionId);
   if (!session) throw new Error("The session could not be found.");
@@ -237,6 +243,7 @@ export const localFairPlayApi: FairPlayApi = {
   async updateSession(sessionId, input) {
     let changed = false;
     const session = updateLocalSession(sessionId, (current) => {
+      assertSetupEditable(current);
       if (sessionInputMatches(current, input)) return current;
       changed = true;
       return { ...current, ...input, status: "DRAFT", recoveryNotice: undefined };
@@ -248,7 +255,7 @@ export const localFairPlayApi: FairPlayApi = {
   async savePlayer(sessionId, player) {
     let changed = false;
     const session = updateLocalSession(sessionId, (current) => {
-      if (current.status === "ACTIVE") throw new Error("Active session rosters cannot be edited.");
+      assertSetupEditable(current);
       const savedPlayer: Player = { ...player, id: player.id ?? crypto.randomUUID() };
       const exists = current.players.some((item) => item.id === savedPlayer.id);
       if (exists && current.players.some((item) => item.id === savedPlayer.id && playerMatches(item, savedPlayer))) return current;
@@ -268,7 +275,7 @@ export const localFairPlayApi: FairPlayApi = {
   async removePlayer(sessionId, playerId) {
     let changed = false;
     const session = updateLocalSession(sessionId, (current) => {
-      if (current.status === "ACTIVE") throw new Error("Active session rosters cannot be edited.");
+      assertSetupEditable(current);
       if (!current.players.some((player) => player.id === playerId)) return current;
       changed = true;
       return {
@@ -286,11 +293,12 @@ export const localFairPlayApi: FairPlayApi = {
   },
 
   async generateSchedule(session, seed = 0) {
+    assertSetupEditable(session);
     return saveGeneratedSchedule(session, await requestSchedule(session, seed));
   },
 
   async reshuffleSchedule(session, currentSchedule) {
-    if (session.status === "ACTIVE") throw new Error("Active sessions cannot be reshuffled.");
+    assertSetupEditable(session);
     const currentSignature = scheduleAssignmentSignature(currentSchedule);
     for (let offset = 1; offset <= RESHUFFLE_ATTEMPTS; offset += 1) {
       const candidate = await requestSchedule(session, currentSchedule.generationSeed + offset);
@@ -300,6 +308,8 @@ export const localFairPlayApi: FairPlayApi = {
   },
 
   async startSession(sessionId) {
+    const currentSession = getLocalSession(sessionId);
+    if (currentSession.status !== "READY") throw new Error("Only a reviewed schedule can be started.");
     const schedules = readLocalSchedules();
     const existingSchedule = schedules[sessionId];
     if (!existingSchedule) throw new Error("Generate a schedule before starting this session.");
@@ -326,6 +336,13 @@ export const localFairPlayApi: FairPlayApi = {
     const activePlayerIds = new Set(session.players.filter(isActivePlayer).map((player) => player.id));
     const departingIds = [...new Set(input.departingPlayerIds)];
     if (departingIds.some((id) => !activePlayerIds.has(id))) throw new Error("Only currently active players can be marked as leaving.");
+    const expectedCourtNumbers = new Set(activeRound.courts.map((court) => court.courtNumber));
+    if (input.results.length !== expectedCourtNumbers.size || new Set(input.results.map((result) => result.courtNumber)).size !== input.results.length) {
+      throw new Error("Record exactly one result for every court before completing the round.");
+    }
+    if (input.results.some((result) => !expectedCourtNumbers.has(result.courtNumber))) {
+      throw new Error("A submitted result does not belong to the active round.");
+    }
     const results = new Map(input.results.map((result) => [result.courtNumber, result]));
     if (activeRound.courts.some((court) => !results.has(court.courtNumber))) throw new Error("Record a result for every court before completing the round.");
 
@@ -415,11 +432,15 @@ export const localFairPlayApi: FairPlayApi = {
         previousRestingPlayerIds: lastCompleted.restingPlayerIds.filter((id) => activePlayers.some((player) => player.id === id)),
       },
     );
+    const playableFutureRounds = candidate.rounds.filter((round) => round.courts.length > 0);
+    if (!playableFutureRounds.length) {
+      return saveLiveState({ ...session, status: "COMPLETED" }, completedOnly);
+    }
     const departedIds = session.players.filter((player) => !isActivePlayer(player)).map((player) => player.id);
     const departedHistory = historicalFairness(session, completedOnly, departedIds).players;
     const mergedSchedule: Schedule = {
       ...candidate,
-      rounds: [...completedRounds, ...candidate.rounds],
+      rounds: [...completedRounds, ...playableFutureRounds],
       fairness: { ...candidate.fairness, players: [...candidate.fairness.players, ...departedHistory] },
     };
     return saveLiveState(session, mergedSchedule);

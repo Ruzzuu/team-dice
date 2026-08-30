@@ -152,6 +152,20 @@ def _make_courts(
     return tuple(courts)
 
 
+def _playable_player_count(available_count: int, capacity: int, players_per_court: int) -> int:
+    """Return the largest count that fits courts with at least two players each."""
+
+    if players_per_court < 2:
+        return 0
+    selected_count = min(available_count, capacity)
+    while selected_count >= 2:
+        required_courts = math.ceil(selected_count / players_per_court)
+        if required_courts <= selected_count // 2:
+            return selected_count
+        selected_count -= 1
+    return 0
+
+
 def generate_fair_schedule(
     *,
     session_id: str,
@@ -201,9 +215,9 @@ def generate_fair_schedule(
                 _tie_break(seed, round_number, player.id),
             ),
         )
-        selected = ordered[:capacity]
-        if len(selected) < 2:
-            selected = []
+        selected = ordered[:_playable_player_count(
+            len(ordered), capacity, players_per_court
+        )]
         selected_ids = [player.id for player in selected]
         selected_set = set(selected_ids)
         resting_ids = [

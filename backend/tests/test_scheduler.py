@@ -108,3 +108,81 @@ def test_consecutive_rests_are_avoided_when_possible() -> None:
 
     for previous, current in zip(result.rounds, result.rounds[1:]):
         assert not set(previous.resting_player_ids).intersection(current.resting_player_ids)
+
+
+def test_reduced_roster_uses_multiple_courts_without_single_player_matches() -> None:
+    result = make_schedule(5)
+
+    for scheduled_round in result.rounds:
+        court_sizes = [
+            len(court.team_a) + len(court.team_b)
+            for court in scheduled_round.courts
+        ]
+        assert court_sizes == [3, 2]
+        assert all(court.team_a and court.team_b for court in scheduled_round.courts)
+
+
+def test_two_player_roster_creates_one_valid_match() -> None:
+    result = make_schedule(2)
+
+    assert all(len(scheduled_round.courts) == 1 for scheduled_round in result.rounds)
+    assert all(
+        len(scheduled_round.courts[0].team_a) == 1
+        and len(scheduled_round.courts[0].team_b) == 1
+        for scheduled_round in result.rounds
+    )
+
+
+def test_small_court_capacity_rests_extra_player_instead_of_overfilling() -> None:
+    timing = calculate_session_timing(
+        session_date=date(2026, 8, 21),
+        start_time=time(19, 0),
+        end_time=time(19, 15),
+        warmup_minutes=0,
+        cleanup_minutes=0,
+        round_duration_minutes=15,
+    )
+    result = generate_fair_schedule(
+        session_id="singles",
+        session_date=date(2026, 8, 21),
+        timing=timing,
+        court_count=2,
+        players_per_court=2,
+        round_duration_minutes=15,
+        players=make_players(3),
+    )
+
+    scheduled_round = result.rounds[0]
+    assert len(scheduled_round.courts) == 1
+    assert len(scheduled_round.courts[0].team_a + scheduled_round.courts[0].team_b) == 2
+    assert len(scheduled_round.resting_player_ids) == 1
+
+
+def test_continuation_counts_and_round_numbers_are_carried_forward() -> None:
+    timing = calculate_session_timing(
+        session_date=date(2026, 8, 21),
+        start_time=time(20, 0),
+        end_time=time(21, 0),
+        warmup_minutes=0,
+        cleanup_minutes=0,
+        round_duration_minutes=15,
+    )
+    players = make_players(4)
+    result = generate_fair_schedule(
+        session_id="continued",
+        session_date=date(2026, 8, 21),
+        timing=timing,
+        court_count=1,
+        players_per_court=4,
+        round_duration_minutes=15,
+        players=players,
+        initial_play_counts={player.id: 2 for player in players},
+        initial_rest_counts={player.id: 1 for player in players},
+        round_number_offset=4,
+        seed=3,
+    )
+
+    assert [scheduled_round.number for scheduled_round in result.rounds] == [5, 6, 7, 8]
+    assert result.rounds[0].start_time == time(20, 0)
+    assert {entry.rounds_played for entry in result.fairness.players} == {6}
+    assert {entry.rest_count for entry in result.fairness.players} == {1}
